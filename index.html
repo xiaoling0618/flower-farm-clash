@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鲜花农场对决 (Flower Farm Clash)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* 大厅弹窗 */
+        #lobbyScreen {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .lobby-card {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 20px;
+            max-width: 800px;
+            width: 100%;
+            padding: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+        }
+
+        .lobby-title {
+            text-align: center;
+            font-size: 2.2rem;
+            color: #fbbf24;
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        .lobby-subtitle {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .control-card {
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .p1-card { background: rgba(8, 145, 178, 0.2); border: 1px solid #06b6d4; color: #cffaff; }
+        .p2-card { background: rgba(225, 29, 72, 0.2); border: 1px solid #f43f5e; color: #ffe4e6; }
+
+        .control-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        .kbd {
+            background: #ffffff;
+            color: #0f172a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 800;
+            font-size: 0.75rem;
+            box-shadow: 0 2px 0 #94a3b8;
+        }
+
+        .rules-box {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        .rules-box h4 {
+            color: #f59e0b;
+            margin-bottom: 6px;
+        }
+
+        .duration-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .dur-btn {
+            background: #334155;
+            color: #94a3b8;
+            border: 2px solid #475569;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dur-btn.active {
+            background: #f59e0b;
+            color: #0f172a;
+            border-color: #fbbf24;
+        }
+
+        .btn-start {
+            width: 100%;
+            background: #10b981;
+            color: #0f172a;
+            font-size: 1.3rem;
+            font-weight: 800;
+            padding: 14px;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-start:active {
+            transform: scale(0.98);
+        }
+
+        /* 顶栏与计时器 */
+        header {
+            background: #020617;
+            border-bottom: 1px solid #1e293b;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .timer-display {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #34d399;
+            background: #0f172a;
+            padding: 2px 16px;
+            border-radius: 20px;
+            border: 1px solid #334155;
+        }
+
+        .mode-badge {
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border: 1px solid #3b82f6;
+            text-transform: uppercase;
+        }
+
+        /* 双人分屏布局 */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 0;
+        }
+
+        @media (max-width: 768px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .player-side {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 8px;
+            position: relative;
+        }
+
+        #p1-side { background-color: #e0f7fa; color: #083344; }
+        #p2-side { background-color: #ffebee; color: #420505; }
+
+        /* 任务栏 */
+        .task-panel {
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 14px;
+            padding: 8px 12px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .task-title {
+            font-weight: 800;
+            font-size: 0.9rem;
+        }
+
+        .btn-submit {
+            background: #cbd5e1;
+            color: #64748b;
+            border: 1px solid #94a3b8;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            cursor: not-allowed;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-submit.ready {
+            background: #10b981;
+            color: #0f172a;
+            border-color: #059669;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.03); }
+        }
+
+        .task-queue {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+        }
+
+        .task-slot {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            border-radius: 8px;
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            position: relative;
+        }
+
+        .task-slot.active {
+            border: 2px solid #f59e0b;
+            background: #fef3c7;
+        }
+
+        .task-slot .badge-active {
+            position: absolute;
+            top: -6px;
+            background: #f59e0b;
+            color: #0f172a;
+            font-size: 0.55rem;
+            font-weight: 900;
+            padding: 1px 4px;
+            border-radius: 4px;
+        }
+
+        /* 5x5 土地网格 */
+        .grid-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 4px 0;
+        }
+
+        .soil-grid {
+            width: 100%;
+            max-width: 320px;
+            aspect-ratio: 1;
+            background: #3e2723;
+            padding: 6px;
+            border-radius: 12px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 4px;
+            box-shadow: inset 0 4px 8px rgba(0,0,0,0.5);
+        }
+
+        .soil-cell {
+            background: #795548;
+            border-radius: 6px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        /* 选择框选中效果 */
+        .soil-cell.p1-sel { outline: 4px solid #0d47a1; outline-offset: -2px; z-index: 5; }
+        .soil-cell.p2-sel { outline: 4px solid #b71c1c; outline-offset: -2px; z-index: 5; }
+        .soil-cell.thunder-target { outline: 4px solid #f57f17 !important; background: #fbc02d !important; z-index: 10; }
+        .soil-cell.thunder-striking { animation: flash 0.15s infinite alternate; background: #ffffff !important; }
+
+        @keyframes flash {
+            0% { background: #ffee58; }
+            100% { background: #ffffff; }
+        }
+
+        /* 鲜花图形样式 */
+        .flower-emoji {
+            font-size: 1.8rem;
+            transition: all 0.2s;
+        }
+
+        .flower-emoji.blur {
+            filter: blur(3px) opacity(0.5);
+            transform: scale(0.8);
+        }
+
+        .flower-emoji.ready {
+            filter: drop-shadow(0 3px 3px rgba(0,0,0,0.3));
+            animation: float 1.2s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        /* 逆时针成熟倒计时圈 */
+        .timer-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transform: rotate(-90deg);
+        }
+
+        .timer-path {
+            fill: none;
+            stroke-width: 4;
+            stroke-linecap: round;
+        }
+
+        /* 控制与背包栏 */
+        .controls-panel {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 14px;
+            padding: 8px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .coin-box {
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #d97706;
+        }
+
+        .btn-harvest {
+            background: #cbd5e1;
+            color: #94a3b8;
+            border: 1px solid #cbd5e1;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: not-allowed;
+        }
+
+        .btn-harvest.active {
+            background: #f59e0b;
+            color: #0f172a;
+            border-color: #d97706;
+            cursor: pointer;
+            animation: float 1s infinite ease-in-out;
+        }
+
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            text-align: center;
+        }
+
+        .inv-btn {
+            background: #ffffff;
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 4px 2px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .inv-btn:active { transform: scale(0.95); }
+
+        .inv-btn.f1 { border-color: #ef4444; background: #fef2f2; }
+        .inv-btn.f2 { border-color: #eab308; background: #fefce8; }
+        .inv-btn.f3 { border-color: #22c55e; background: #f0fdf4; }
+        .inv-btn.f4 { border-color: #3b82f6; background: #eff6ff; }
+
+        .inv-count {
+            font-weight: 800;
+            font-size: 0.75rem;
+        }
+
+        .thunder-btn {
+            background: #f1f5f9;
+            border: 2px solid #cbd5e1;
+            opacity: 0.6;
+        }
+
+        .thunder-btn.ready {
+            background: #fef3c7;
+            border-color: #f59e0b;
+            opacity: 1;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+        }
+
+        /* 自动购买提示 */
+        .toast-autobuy {
+            position: absolute;
+            top: 2px;
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #b45309;
+            font-size: 0.55rem;
+            font-weight: 800;
+            padding: 1px 4px;
+            border-radius: 4px;
+            pointer-events: none;
+            animation: floatUp 0.8s forwards;
+            z-index: 20;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-15px); opacity: 0; }
+        }
+
+        /* 结算弹窗 */
+        #victoryModal {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .victory-card {
+            background: #1e293b;
+            border: 2px solid #f59e0b;
+            border-radius: 20px;
+            max-width: 420px;
+            width: 100%;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- 音乐资源节点 -->
+<audio id="audio-bgm" preload="auto"></audio>
+<audio id="audio-end" src="end.mp3" preload="auto"></audio>
+
+<!-- 大厅页面 -->
+<div id="lobbyScreen">
+    <div class="lobby-card">
+        <h1 class="lobby-title">🌸 鲜花农场对决 🌸</h1>
+        <p class="lobby-subtitle">双人实时竞技农场对战</p>
+
+        <div class="controls-grid">
+            <div class="control-card p1-card">
+                <h3>👤 玩家 1（左侧区域）</h3>
+                <p>• <strong>移动/选择：</strong> 点击土地 或 按 <span class="kbd">WASD</span></p>
+                <p>• <strong>种植：</strong> <span class="kbd">R</span> (🌹 玫瑰 5秒), <span class="kbd">T</span> (🌻 向日葵 10秒), <span class="kbd">Y</span> (🍀 三叶草 15秒), <span class="kbd">U</span> (💠 蓝花 25秒)</p>
+                <p>• <strong>收获：</strong> <span class="kbd">E</span> | <strong>提交任务：</strong> <span class="kbd">Q</span></p>
+                <p>• <strong>雷击技能 (需8金币)：</strong> 按 <span class="kbd">Z</span> 瞄准 P2 区域，WASD 移动，再按 <span class="kbd">Z</span> 释放雷击！</p>
+            </div>
+
+            <div class="control-card p2-card">
+                <h3>👤 玩家 2（右侧区域）</h3>
+                <p>• <strong>移动/选择：</strong> 点击土地 或 按 <span class="kbd">方向键</span></p>
+                <p>• <strong>种植：</strong> <span class="kbd">1</span> (🌹 玫瑰 5秒), <span class="kbd">2</span> (🌻 向日葵 10秒), <span class="kbd">3</span> (🍀 三叶草 15秒), <span class="kbd">4</span> (💠 蓝花 25秒)</p>
+                <p>• <strong>收获：</strong> <span class="kbd">6</span> | <strong>提交任务：</strong> <span class="kbd">9</span></p>
+                <p>• <strong>雷击技能 (需8金币)：</strong> 按 <span class="kbd">8</span> 瞄准 P1 区域，方向键移动，再按 <span class="kbd">8</span> 释放雷击！</p>
+            </div>
+        </div>
+
+        <div class="rules-box">
+            <h4>🪙 规则与自动购买机制：</h4>
+            <p>• <strong>胜利条件：</strong> 计时结束时，获得<strong>金币最多</strong>的玩家获胜！</p>
+            <p>• <strong>自动购买：</strong> 当种子库存为 0 时，种植会自动消耗<strong>双倍金币</strong>购买 (🌹:2金币, 🌻:4金币, 🍀:6金币, 💠:8金币)。</p>
+            <p>• <strong>倒计时时钟：</strong> 土地上的植物成长圆环从12点钟方向开始逆时针消退。</p>
+        </div>
+
+        <div class="duration-selector">
+            <span style="font-weight:700;">游戏时长：</span>
+            <button onclick="setDuration(5)" id="dur-5" class="dur-btn active">5 分钟</button>
+            <button onclick="setDuration(10)" id="dur-10" class="dur-btn">10 分钟</button>
+            <button onclick="setDuration(15)" id="dur-15" class="dur-btn">15 分钟</button>
+        </div>
+
+        <button onclick="startGame()" class="btn-start">🚀 开始游戏</button>
+    </div>
+</div>
+
+<!-- 顶栏 -->
+<header>
+    <span style="font-weight: 800; font-size: 1.2rem; color: #fbbf24;">鲜花农场对决</span>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <div id="gameTimer" class="timer-display">05:00</div>
+        <span id="modeBadge" class="mode-badge">普通模式</span>
+    </div>
+    <button onclick="openLobby()" style="background:#334155; color:#cbd5e1; border:none; padding:6px 12px; border-radius:6px; font-weight:700; cursor:pointer;">⚙ 选项设置</button>
+</header>
+
+<!-- 双人竞技主画面 -->
+<main>
+    <!-- 玩家 1 区域 -->
+    <section class="player-side" id="p1-side">
+        <div class="task-panel">
+            <div class="task-header">
+                <span class="task-title">P1 当前任务</span>
+                <button id="p1-submit-btn" onclick="submitTask(1)" class="btn-submit">
+                    <span class="kbd">Q</span> 提交任务
+                </button>
+            </div>
+            <div id="p1-tasks-queue" class="task-queue"></div>
+        </div>
+
+        <div class="grid-wrapper">
+            <div id="p1-grid" class="soil-grid"></div>
+        </div>
+
+        <div class="controls-panel">
+            <div class="status-row">
+                <span class="coin-box">🪙 金币: <span id="p1-coins">0</span></span>
+                <button id="p1-harvest-indicator" onclick="harvestFlower(p1)" class="btn-harvest">
+                    <span class="kbd">E</span> 收获鲜花
+                </button>
+            </div>
+
+            <div class="inventory-grid">
+                <button onclick="plantFlower(p1, 1)" class="inv-btn f1">
+                    <span>🌹</span>
+                    <span id="p1-f1" class="inv-count">0</span>
+                    <span class="kbd">R</span>
+                </button>
+                <button onclick="plantFlower(p1, 2)" class="inv-btn f2">
+                    <span>🌻</span>
+                    <span id="p1-f2" class="inv-count">0</span>
+                    <span class="kbd">T</span>
+                </button>
+                <button onclick="plantFlower(p1, 3)" class="inv-btn f3">
+                    <span>🍀</span>
+                    <span id="p1-f3" class="inv-count">0</span>
+                    <span class="kbd">Y</span>
+                </button>
+                <button onclick="plantFlower(p1, 4)" class="inv-btn f4">
+                    <span>💠</span>
+                    <span id="p1-f4" class="inv-count">0</span>
+                    <span class="kbd">U</span>
+                </button>
+                <button id="p1-thunder-box" onclick="toggleThunderMode(p1)" class="inv-btn thunder-btn">
+                    <span>⚡</span>
+                    <span style="font-size:0.55rem; font-weight:800;">8 金币</span>
+                    <span class="kbd">Z</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 玩家 2 区域 -->
+    <section class="player-side" id="p2-side">
+        <div class="task-panel">
+            <div class="task-header">
+                <span class="task-title">P2 当前任务</span>
+                <button id="p2-submit-btn" onclick="submitTask(2)" class="btn-submit">
+                    <span class="kbd">9</span> 提交任务
+                </button>
+            </div>
+            <div id="p2-tasks-queue" class="task-queue"></div>
+        </div>
+
+        <div class="grid-wrapper">
+            <div id="p2-grid" class="soil-grid"></div>
+        </div>
+
+        <div class="controls-panel">
+            <div class="status-row">
+                <span class="coin-box">🪙 金币: <span id="p2-coins">0</span></span>
+                <button id="p2-harvest-indicator" onclick="harvestFlower(p2)" class="btn-harvest">
+                    <span class="kbd">6</span> 收获鲜花
+                </button>
+            </div>
+
+            <div class="inventory-grid">
+                <button onclick="plantFlower(p2, 1)" class="inv-btn f1">
+                    <span>🌹</span>
+                    <span id="p2-f1" class="inv-count">0</span>
+                    <span class="kbd">1</span>
+                </button>
+                <button onclick="plantFlower(p2, 2)" class="inv-btn f2">
+                    <span>🌻</span>
+                    <span id="p2-f2" class="inv-count">0</span>
+                    <span class="kbd">2</span>
+                </button>
+                <button onclick="plantFlower(p2, 3)" class="inv-btn f3">
+                    <span>🍀</span>
+                    <span id="p2-f3" class="inv-count">0</span>
+                    <span class="kbd">3</span>
+                </button>
+                <button onclick="plantFlower(p2, 4)" class="inv-btn f4">
+                    <span>💠</span>
+                    <span id="p2-f4" class="inv-count">0</span>
+                    <span class="kbd">4</span>
+                </button>
+                <button id="p2-thunder-box" onclick="toggleThunderMode(p2)" class="inv-btn thunder-btn">
+                    <span>⚡</span>
+                    <span style="font-size:0.55rem; font-weight:800;">8 金币</span>
+                    <span class="kbd">8</span>
+                </button>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- 结算弹窗 -->
+<div id="victoryModal" class="hidden">
+    <div class="victory-card">
+        <h2 id="victoryTitle" style="font-size: 2rem; color: #fbbf24; margin-bottom: 8px;">玩家 1 获胜！</h2>
+        <p id="victoryDesc" style="color: #cbd5e1; font-size: 0.9rem; margin-bottom: 20px;">凭借更高金币赢得比赛！</p>
+        <button onclick="openLobby()" class="btn-start">↻ 再玩一局</button>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 30个背景音乐占位符（支持后续用写字板 Ctrl+F 查找替换）
+    // ==========================================
+    const AUDIO_FILES = {
+        /* 关键词：bgm1 */  bgm1: "bgm1.mp3",
+        /* 关键词：bgm2 */  bgm2: "bgm2.mp3",
+        /* 关键词：bgm3 */  bgm3: "bgm3.mp3",
+        /* 关键词：bgm4 */  bgm4: "bgm4.mp3",
+        /* 关键词：bgm5 */  bgm5: "bgm5.mp3",
+        /* 关键词：bgm6 */  bgm6: "bgm6.mp3",
+        /* 关键词：bgm7 */  bgm7: "bgm7.mp3",
+        /* 关键词：bgm8 */  bgm8: "bgm8.mp3",
+        /* 关键词：bgm9 */  bgm9: "bgm9.mp3",
+        /* 关键词：bgm10 */ bgm10: "bgm10.mp3",
+        
+        /* 关键词：bgm11 */ bgm11: "bgm11.mp3",
+        /* 关键词：bgm12 */ bgm12: "bgm12.mp3",
+        /* 关键词：bgm13 */ bgm13: "bgm13.mp3",
+        /* 关键词：bgm14 */ bgm14: "bgm14.mp3",
+        /* 关键词：bgm15 */ bgm15: "bgm15.mp3",
+        /* 关键词：bgm16 */ bgm16: "bgm16.mp3",
+        /* 关键词：bgm17 */ bgm17: "bgm17.mp3",
+        /* 关键词：bgm18 */ bgm18: "bgm18.mp3",
+        /* 关键词：bgm19 */ bgm19: "bgm19.mp3",
+        /* 关键词：bgm20 */ bgm20: "bgm20.mp3",
+        
+        /* 关键词：bgm21 */ bgm21: "bgm21.mp3",
+        /* 关键词：bgm22 */ bgm22: "bgm22.mp3",
+        /* 关键词：bgm23 */ bgm23: "bgm23.mp3",
+        /* 关键词：bgm24 */ bgm24: "bgm24.mp3",
+        /* 关键词：bgm25 */ bgm25: "bgm25.mp3",
+        /* 关键词：bgm26 */ bgm26: "bgm26.mp3",
+        /* 关键词：bgm27 */ bgm27: "bgm27.mp3",
+        /* 关键词：bgm28 */ bgm28: "bgm28.mp3",
+        /* 关键词：bgm29 */ bgm29: "bgm29.mp3",
+        /* 关键词：bgm30 */ bgm30: "bgm30.mp3",
+    };
+
+    // 随机播放池（会从前6首中随机切换，你可以按需扩充）
+    const bgmKeys = ['bgm1', 'bgm2', 'bgm3', 'bgm4', 'bgm5', 'bgm6'];
+    let currentBgmKey = '';
+
+    const bgmAudio = document.getElementById('audio-bgm');
+    const endAudio = document.getElementById('audio-end');
+
+    bgmAudio.addEventListener('ended', () => {
+        playNextRandomBgm();
+    });
+
+    function playNextRandomBgm() {
+        let nextKey;
+        do {
+            const randIdx = Math.floor(Math.random() * bgmKeys.length);
+            nextKey = bgmKeys[randIdx];
+        } while (nextKey === currentBgmKey && bgmKeys.length > 1);
+
+        currentBgmKey = nextKey;
+        playBgm();
+    }
+
+    function playBgm() {
+        bgmAudio.src = AUDIO_FILES[currentBgmKey];
+        bgmAudio.volume = 1.0;
+        bgmAudio.play().catch(e => console.log('BGM Play Blocked:', e));
+    }
+
+    function stopBgm() {
+        bgmAudio.pause();
+        bgmAudio.currentTime = 0;
+    }
+
+    function playEndSound() {
+        if (!endAudio || !endAudio.src) return;
+        endAudio.currentTime = 0;
+        endAudio.volume = 1.0;
+        endAudio.play().catch(e => console.log('End Audio Play Blocked:', e));
+    }
+
+    // --- 游戏规则与控制 ---
+    const FLOWER_TYPES = {
+        1: { name: '红玫瑰', emoji: '🌹', color: '#ef4444', growTime: 5, coinValue: 1 },
+        2: { name: '黄向日葵', emoji: '🌻', color: '#eab308', growTime: 10, coinValue: 2 },
+        3: { name: '绿三叶草', emoji: '🍀', color: '#22c55e', growTime: 15, coinValue: 3 },
+        4: { name: '蓝风铃', emoji: '💠', color: '#3b82f6', growTime: 25, coinValue: 4 }
+    };
+
+    const THUNDER_COST = 8;
+    let durationMins = 5;
+    let gameTimeRemaining = 300;
+    let elapsedSeconds = 0;
+    let isGameRunning = false;
+    let gameLoopInterval = null;
+    let taskGeneratorInterval = null;
+
+    let p1 = createPlayer(1);
+    let p2 = createPlayer(2);
+
+    function createPlayer(id) {
+        return {
+            id: id,
+            coins: 0,
+            flowers: { 1: 5, 2: 5, 3: 5, 4: 5 },
+            grid: Array(25).fill(null).map(() => ({ flower: null, plantedTime: 0, isMatured: false })),
+            selRow: 0, selCol: 0,
+            thunderMode: false,
+            thunderTargetRow: 0, thunderTargetCol: 0,
+            tasks: []
+        };
+    }
+
+    function setDuration(m) {
+        durationMins = m;
+        document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`dur-${m}`).classList.add('active');
+    }
+
+    function openLobby() {
+        isGameRunning = false;
+        clearInterval(gameLoopInterval);
+        clearInterval(taskGeneratorInterval);
+        stopBgm();
+        document.getElementById('lobbyScreen').classList.remove('hidden');
+        document.getElementById('victoryModal').classList.add('hidden');
+    }
+
+    function startGame() {
+        document.getElementById('lobbyScreen').classList.add('hidden');
+        document.getElementById('victoryModal').classList.add('hidden');
+
+        gameTimeRemaining = durationMins * 60;
+        elapsedSeconds = 0;
+        isGameRunning = true;
+
+        p1 = createPlayer(1);
+        p2 = createPlayer(2);
+
+        for (let i = 0; i < 3; i++) {
+            p1.tasks.push(generateTask());
+            p2.tasks.push(generateTask());
+        }
+
+        initGrids();
+        updateUI();
+
+        clearInterval(gameLoopInterval);
+        clearInterval(taskGeneratorInterval);
+
+        gameLoopInterval = setInterval(gameTick, 1000);
+        taskGeneratorInterval = setInterval(spawnTasksTick, 7000);
+
+        playNextRandomBgm();
+    }
+
+    function initGrids() {
+        ['p1', 'p2'].forEach((prefix, pIdx) => {
+            const gridEl = document.getElementById(`${prefix}-grid`);
+            gridEl.innerHTML = '';
+            for (let i = 0; i < 25; i++) {
+                const row = Math.floor(i / 5);
+                const col = i % 5;
+                const cell = document.createElement('div');
+                cell.className = 'soil-cell';
+                cell.id = `${prefix}-cell-${i}`;
+                cell.onclick = () => handleSoilClick(pIdx + 1, row, col);
+                gridEl.appendChild(cell);
+            }
+        });
+    }
+
+    function handleSoilClick(gridOwnerId, row, col) {
+        if (!isGameRunning) return;
+        if (gridOwnerId === 1) {
+            if (p2.thunderMode) { p2.thunderTargetRow = Math.min(3, row); p2.thunderTargetCol = Math.min(3, col); }
+            else { p1.selRow = row; p1.selCol = col; }
+        } else {
+            if (p1.thunderMode) { p1.thunderTargetRow = Math.min(3, row); p1.thunderTargetCol = Math.min(3, col); }
+            else { p2.selRow = row; p2.selCol = col; }
+        }
+        updateUI();
+    }
+
+    function generateTask() {
+        let minTotal = 2, maxTotal = 15;
+        if (elapsedSeconds >= 600) { minTotal = 41; maxTotal = 50; }
+        else if (elapsedSeconds >= 300) { minTotal = 16; maxTotal = 40; }
+
+        const total = Math.floor(Math.random() * (maxTotal - minTotal + 1)) + minTotal;
+        const twoTypes = Math.random() < 0.6;
+        const req = {};
+        let coinReward = 0;
+
+        if (!twoTypes) {
+            const t = Math.floor(Math.random() * 4) + 1;
+            req[t] = total;
+            coinReward = total * FLOWER_TYPES[t].coinValue;
+        } else {
+            const t1 = Math.floor(Math.random() * 4) + 1;
+            let t2 = Math.floor(Math.random() * 4) + 1;
+            while (t2 === t1) t2 = Math.floor(Math.random() * 4) + 1;
+            const p1Amt = Math.floor(Math.random() * (total - 1)) + 1;
+            const p2Amt = total - p1Amt;
+            req[t1] = p1Amt; req[t2] = p2Amt;
+            coinReward = (p1Amt * FLOWER_TYPES[t1].coinValue) + (p2Amt * FLOWER_TYPES[t2].coinValue);
+        }
+        return { requirements: req, coinReward: coinReward };
+    }
+
+    function spawnTasksTick() {
+        if (!isGameRunning) return;
+        if (p1.tasks.length < 5) p1.tasks.push(generateTask());
+        if (p2.tasks.length < 5) p2.tasks.push(generateTask());
+        renderTasks();
+    }
+
+    function gameTick() {
+        if (!isGameRunning) return;
+        elapsedSeconds++;
+        gameTimeRemaining--;
+
+        if (gameTimeRemaining <= 0) {
+            gameTimeRemaining = 0;
+            handleTimeUp();
+        }
+        updateUI();
+    }
+
+    function getCurrentMode() {
+        if (elapsedSeconds >= 600) return '巨量';
+        if (elapsedSeconds >= 300) return '连击';
+        return '普通';
+    }
+
+    function handleTimeUp() {
+        if (p1.coins > p2.coins) {
+            triggerVictory("玩家 1 获胜！", "玩家 1 获得了更多金币！");
+        } else if (p2.coins > p1.coins) {
+            triggerVictory("玩家 2 获胜！", "玩家 2 获得了更多金币！");
+        } else {
+            triggerVictory("平局！", "两位玩家获得的金币相同！");
+        }
+    }
+
+    function triggerVictory(titleText, desc) {
+        isGameRunning = false;
+        clearInterval(gameLoopInterval);
+        clearInterval(taskGeneratorInterval);
+        
+        stopBgm();
+        playEndSound();
+
+        document.getElementById('victoryTitle').innerText = titleText;
+        document.getElementById('victoryDesc').innerText = desc;
+        document.getElementById('victoryModal').classList.remove('hidden');
+    }
+
+    function updateUI() {
+        const m = Math.floor(gameTimeRemaining / 60).toString().padStart(2, '0');
+        const s = (gameTimeRemaining % 60).toString().padStart(2, '0');
+        document.getElementById('gameTimer').innerText = `${m}:${s}`;
+
+        const mode = getCurrentMode();
+        document.getElementById('modeBadge').innerText = `${mode}模式`;
+
+        document.getElementById('p1-coins').innerText = p1.coins;
+        document.getElementById('p2-coins').innerText = p2.coins;
+
+        for (let f = 1; f <= 4; f++) {
+            document.getElementById(`p1-f${f}`).innerText = p1.flowers[f];
+            document.getElementById(`p2-f${f}`).innerText = p2.flowers[f];
+        }
+
+        document.getElementById('p1-thunder-box').className = `inv-btn thunder-btn ${p1.coins >= THUNDER_COST ? 'ready' : ''}`;
+        document.getElementById('p2-thunder-box').className = `inv-btn thunder-btn ${p2.coins >= THUNDER_COST ? 'ready' : ''}`;
+
+        renderGrid(p1, 'p1', p2);
+        renderGrid(p2, 'p2', p1);
+        renderTasks();
+        updateButtons();
+    }
+
+    function renderGrid(player, prefix, opponent) {
+        const now = Date.now();
+        for (let idx = 0; idx < 25; idx++) {
+            const cellEl = document.getElementById(`${prefix}-cell-${idx}`);
+            if (!cellEl) continue;
+            const cellData = player.grid[idx];
+            const row = Math.floor(idx / 5);
+            const col = idx % 5;
+
+            cellEl.className = 'soil-cell';
+            cellEl.innerHTML = '';
+
+            if (!player.thunderMode && player.selRow === row && player.selCol === col) {
+                cellEl.classList.add(`${prefix}-sel`);
+            }
+
+            if (opponent.thunderMode) {
+                if (row >= opponent.thunderTargetRow && row <= opponent.thunderTargetRow + 1 &&
+                    col >= opponent.thunderTargetCol && col <= opponent.thunderTargetCol + 1) {
+                    cellEl.classList.add('thunder-target');
+                }
+            }
+
+            if (cellData.flower) {
+                const fType = FLOWER_TYPES[cellData.flower];
+                const elapsed = (now - cellData.plantedTime) / 1000;
+                const isMatured = elapsed >= fType.growTime;
+                cellData.isMatured = isMatured;
+
+                const emojiSpan = document.createElement('span');
+                emojiSpan.className = `flower-emoji ${isMatured ? 'ready' : 'blur'}`;
+                emojiSpan.innerText = fType.emoji;
+                cellEl.appendChild(emojiSpan);
+
+                if (!isMatured) {
+                    const progress = Math.min(1, elapsed / fType.growTime);
+                    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                    svg.setAttribute("class", "timer-svg");
+                    svg.setAttribute("viewBox", "0 0 36 36");
+
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    path.setAttribute("class", "timer-path");
+                    path.setAttribute("stroke", fType.color);
+                    
+                    const dashArray = 100;
+                    const dashOffset = dashArray * (1 - progress);
+                    path.setAttribute("stroke-dasharray", `${dashArray}`);
+                    path.setAttribute("stroke-dashoffset", `${dashOffset}`);
+                    path.setAttribute("d", "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831");
+
+                    svg.appendChild(path);
+                    cellEl.appendChild(svg);
+                }
+            }
+        }
+    }
+
+    function renderTasks() {
+        ['p1', 'p2'].forEach((prefix, pIdx) => {
+            const player = pIdx === 0 ? p1 : p2;
+            const queueEl = document.getElementById(`${prefix}-tasks-queue`);
+            queueEl.innerHTML = '';
+
+            player.tasks.forEach((task, idx) => {
+                const slot = document.createElement('div');
+                slot.className = `task-slot ${idx === 0 ? 'active' : ''}`;
+                if (idx === 0) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge-active';
+                    badge.innerText = '当前目标';
+                    slot.appendChild(badge);
+                }
+
+                let reqHtml = '';
+                for (let tId in task.requirements) {
+                    reqHtml += `<div>${FLOWER_TYPES[tId].emoji}${task.requirements[tId]}</div>`;
+                }
+                slot.innerHTML += `<div style="margin-top:4px; line-height:1.1;">${reqHtml}</div><div style="font-size:0.6rem; color:#d97706; font-weight:800;">+${task.coinReward}金币</div>`;
+                queueEl.appendChild(slot);
+            });
+        });
+    }
+
+    function updateButtons() {
+        ['p1', 'p2'].forEach((prefix, pIdx) => {
+            const player = pIdx === 0 ? p1 : p2;
+            const submitBtn = document.getElementById(`${prefix}-submit-btn`);
+            const harvestBtn = document.getElementById(`${prefix}-harvest-indicator`);
+
+            let canSubmit = false;
+            if (player.tasks.length > 0) {
+                const activeTask = player.tasks[0];
+                canSubmit = true;
+                for (let tId in activeTask.requirements) {
+                    let countOnGrid = 0;
+                    player.grid.forEach(cell => {
+                        if (cell.flower == tId && cell.isMatured) countOnGrid++;
+                    });
+                    if (countOnGrid < activeTask.requirements[tId]) {
+                        canSubmit = false;
+                        break;
+                    }
+                }
+            }
+            submitBtn.className = `btn-submit ${canSubmit ? 'ready' : ''}`;
+
+            let canHarvest = player.grid.some(cell => cell.flower && cell.isMatured);
+            harvestBtn.className = `btn-harvest ${canHarvest ? 'active' : ''}`;
+        });
+    }
+
+    // 种植逻辑
+    function plantFlower(player, typeId) {
+        if (!isGameRunning) return;
+        const idx = player.selRow * 5 + player.selCol;
+        const cell = player.grid[idx];
+        if (cell.flower) return; // 已有植物
+
+        const fType = FLOWER_TYPES[typeId];
+        if (player.flowers[typeId] > 0) {
+            player.flowers[typeId]--;
+            cell.flower = typeId;
+            cell.plantedTime = Date.now();
+            cell.isMatured = false;
+        } else {
+            // 自动购买 (双倍价格)
+            const cost = fType.coinValue * 2;
+            if (player.coins >= cost) {
+                player.coins -= cost;
+                cell.flower = typeId;
+                cell.plantedTime = Date.now();
+                cell.isMatured = false;
+                showToast(player, `自动购买 -${cost}金币`);
+            }
+        }
+        updateUI();
+    }
+
+    function harvestFlower(player) {
+        if (!isGameRunning) return;
+        const idx = player.selRow * 5 + player.selCol;
+        const cell = player.grid[idx];
+        if (cell.flower && cell.isMatured) {
+            player.flowers[cell.flower]++;
+            cell.flower = null;
+            updateUI();
+        }
+    }
+
+    function submitTask(playerId) {
+        if (!isGameRunning) return;
+        const player = playerId === 1 ? p1 : p2;
+        if (player.tasks.length === 0) return;
+        const activeTask = player.tasks[0];
+
+        // 验证是否满足条件
+        for (let tId in activeTask.requirements) {
+            let count = 0;
+            player.grid.forEach(cell => {
+                if (cell.flower == tId && cell.isMatured) count++;
+            });
+            if (count < activeTask.requirements[tId]) return;
+        }
+
+        // 扣除格子上成熟的植物
+        for (let tId in activeTask.requirements) {
+            let needed = activeTask.requirements[tId];
+            player.grid.forEach(cell => {
+                if (needed > 0 && cell.flower == tId && cell.isMatured) {
+                    cell.flower = null;
+                    needed--;
+                }
+            });
+        }
+
+        player.coins += activeTask.coinReward;
+        player.tasks.shift(); // 移除当前任务
+        updateUI();
+    }
+
+    function toggleThunderMode(player) {
+        if (!isGameRunning) return;
+        if (player.coins < THUNDER_COST) return;
+        player.thunderMode = !player.thunderMode;
+        updateUI();
+    }
+
+    function showToast(player, text) {
+        const prefix = player.id === 1 ? 'p1' : 'p2';
+        const gridEl = document.getElementById(`${prefix}-grid`);
+        const toast = document.createElement('div');
+        toast.className = 'toast-autobuy';
+        toast.innerText = text;
+        gridEl.appendChild(toast);
+        setTimeout(() => toast.remove(), 800);
+    }
+
+    // 键盘交互监听
+    window.addEventListener('keydown', (e) => {
+        if (!isGameRunning) return;
+        const key = e.key;
+
+        // P1 键盘控制 (WASD, R/T/Y/U, E, Q, Z)
+        if (['w','a','s','d','W','A','S','D'].includes(key)) {
+            if (p2.thunderMode) {
+                if (key.toLowerCase() === 'w' && p2.thunderTargetRow > 0) p2.thunderTargetRow--;
+                if (key.toLowerCase() === 's' && p2.thunderTargetRow < 3) p2.thunderTargetRow++;
+                if (key.toLowerCase() === 'a' && p2.thunderTargetCol > 0) p2.thunderTargetCol--;
+                if (key.toLowerCase() === 'd' && p2.thunderTargetCol < 3) p2.thunderTargetCol++;
+            } else {
+                if (key.toLowerCase() === 'w' && p1.selRow > 0) p1.selRow--;
+                if (key.toLowerCase() === 's' && p1.selRow < 4) p1.selRow++;
+                if (key.toLowerCase() === 'a' && p1.selCol > 0) p1.selCol--;
+                if (key.toLowerCase() === 'd' && p1.selCol < 4) p1.selCol++;
+            }
+        }
+        if (key.toLowerCase() === 'r') plantFlower(p1, 1);
+        if (key.toLowerCase() === 't') plantFlower(p1, 2);
+        if (key.toLowerCase() === 'y') plantFlower(p1, 3);
+        if (key.toLowerCase() === 'u') plantFlower(p1, 4);
+        if (key.toLowerCase() === 'e') harvestFlower(p1);
+        if (key.toLowerCase() === 'q') submitTask(1);
+        if (key.toLowerCase() === 'z') {
+            if (p1.thunderMode) {
+                // 触发雷击清理对方目标区域
+                executeThunder(p1, p2);
+            } else {
+                toggleThunderMode(p1);
+            }
+        }
+
+        // P2 键盘控制 (方向键, 1/2/3/4, 6, 9, 8)
+        if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(key)) {
+            e.preventDefault();
+            if (p1.thunderMode) {
+                if (key === 'ArrowUp' && p1.thunderTargetRow > 0) p1.thunderTargetRow--;
+                if (key === 'ArrowDown' && p1.thunderTargetRow < 3) p1.thunderTargetRow++;
+                if (key === 'ArrowLeft' && p1.thunderTargetCol > 0) p1.thunderTargetCol--;
+                if (key === 'ArrowRight' && p1.thunderTargetCol < 3) p1.thunderTargetCol++;
+            } else {
+                if (key === 'ArrowUp' && p2.selRow > 0) p2.selRow--;
+                if (key === 'ArrowDown' && p2.selRow < 4) p2.selRow++;
+                if (key === 'ArrowLeft' && p2.selCol > 0) p2.selCol--;
+                if (key === 'ArrowRight' && p2.selCol < 4) p2.selCol++;
+            }
+        }
+        if (key === '1') plantFlower(p2, 1);
+        if (key === '2') plantFlower(p2, 2);
+        if (key === '3') plantFlower(p2, 3);
+        if (key === '4') plantFlower(p2, 4);
+        if (key === '6') harvestFlower(p2);
+        if (key === '9') submitTask(2);
+        if (key === '8') {
+            if (p2.thunderMode) {
+                executeThunder(p2, p1);
+            } else {
+                toggleThunderMode(p2);
+            }
+        }
+
+        updateUI();
+    });
+
+    function executeThunder(attacker, defender) {
+        if (attacker.coins < THUNDER_COST) return;
+        attacker.coins -= THUNDER_COST;
+        attacker.thunderMode = false;
+
+        // 清理对方 2x2 区域
+        for (let r = attacker.thunderTargetRow; r <= attacker.thunderTargetRow + 1; r++) {
+            for (let c = attacker.thunderTargetCol; c <= attacker.thunderTargetCol + 1; c++) {
+                const idx = r * 5 + c;
+                defender.grid[idx].flower = null;
+            }
+        }
+    }
+
+    function animLoop() {
+        if (!isGameRunning) return;
+        renderGrid(p1, 'p1', p2);
+        renderGrid(p2, 'p2', p1);
+        requestAnimationFrame(animLoop);
+    }
+</script>
+</body>
+</html>
